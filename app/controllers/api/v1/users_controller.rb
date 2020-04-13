@@ -3,13 +3,12 @@ module Api::V1
     include Response
 
     before_action :set_user, only: [:update, :show, :change_password]
-    before_action do
+    before_action(except: [:reset_password]) do
       doorkeeper_authorize! :public, :read
     end
 
     def show
       render json: @user, status: :ok
-      # render json: User.where(id: params[:id]), status: :ok
     end
 
     def update
@@ -30,14 +29,32 @@ module Api::V1
     end
 
     def reset_password
-    
+      if email_exist?(reset_params[:email])
+        msg = "Password reset email sent to #{reset_params[:email]}"
+        render json: {data: {"message": msg}}, status: :ok
+      else
+        render json: {data: {"message": "No Record Found"}}, status: :ok
+      end
     end
 
     def check_mail
+      if email_exist?(params[:email])
+        render json: {data: {"available": true}}, status: :ok
+      else
+        render json: {data: {"available": false}}, status: :ok
+      end
     end
 
     def change_password
-      
+      args = {
+              password: password_params[:current_password],
+              password_confirmation: password_params[:new_password]
+            }
+      if @user.update(args)
+        json_response(@user)
+      else
+        render json: @user.errors, status: :unprocessable_entity
+      end
     end
 
     private
@@ -50,8 +67,20 @@ module Api::V1
       params(:user).permit(:first_name, :last_name, :image_url, :date_of_birth)
     end
 
+    def password_params
+      params.require(:user).permit(:current_password, :new_password)
+    end
+
+    def reset_params
+      params.require(:user).permit(:email)
+    end
+
+    def email_exist?(mail)
+      User.where(email: mail).exists?
+    end
+
     def set_user
-      @user = (params[:id] == 'me') ? current_user : User.find(params[:id])
+      @user = (params[:user_id] == 'me') ? current_user : User.find(params[:id])
     end
 
   end
