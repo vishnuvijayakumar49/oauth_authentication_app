@@ -1,25 +1,54 @@
 module Api::V1
   class WidgetsController < ApiController
-    # before_action -> { doorkeeper_authorize! :admin }, only: :index
-    # doorkeeper_for :index, :scopes => [:public]
+    include Widgetable
+    include Response
 
+    before_action :set_widget, only: [:update, :destroy]
+    before_action do
+      doorkeeper_authorize! :public, :read
+    end
+    
     def index
-      binding.pry
-      render json: Widget.all
+      widgets = params[:user_id].nil? ? Widget.all : query_widgets
+      json_response(widgets)
     end
 
     def show
-      render json: Widget.where(id: params[:id]), status: :ok
+      widget = query_visible_widgets
+      json_response(widget)
     end
 
-    def me
-      render json: current_resource_owner.to_json
+    def create
+      widget = Widget.new(widget_params)
+      widget.user = current_user
+      if widget.save
+        json_response(widget)
+      else
+        json_response(widget, :unprocessable_entity)
+      end
+    end
+
+    def update
+      if @widget.update(widget_params)
+        json_response(widget)
+      else
+        render json: widget.errors, status: :unprocessable_entity
+      end
+    end
+
+    def destroy
+      @widget.destroy
+      json_response(@widget)
     end
 
     private
 
-    def current_resource_owner
-      User.find(doorkeeper_token.resource_owner_id) if current_resource_owner
+    def set_widget
+      @widget = Widget.find(params[:id])
+    end
+
+    def widget_params
+      params.require(:widget).permit(:name, :description, :kind)
     end
   end
 end
