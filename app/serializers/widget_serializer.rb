@@ -1,9 +1,4 @@
 class WidgetSerializer < ActiveModel::Serializer
-  attributes :id, :name
+  attributes :id, :name, :description, :kind, :owner
   has_one :user
-
-  def attributes(*args)
-    super
-    
-  end
 end
